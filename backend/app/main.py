@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import close_pool, connect_pool
-from app.routers import admin, assessments, auth, monitoring
+from app.routers import admin, assessments, auth, findings, monitoring, reporting
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,6 +38,9 @@ app.include_router(auth.router)
 app.include_router(assessments.router)
 app.include_router(admin.router)
 app.include_router(monitoring.router)
+app.include_router(findings.router)
+app.include_router(findings.admin_router)
+app.include_router(reporting.router)
 
 
 @app.get("/health")

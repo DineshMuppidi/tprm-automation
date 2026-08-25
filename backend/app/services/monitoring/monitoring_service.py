@@ -18,6 +18,7 @@ from app.services.monitoring.factory import (
 )
 from app.services.monitoring.impact_assessor import create_incident_finding
 from app.services.monitoring.types import VendorInfo
+from app.services.remediation.finding_generator import create_finding_from_alert
 
 
 async def _active_vendors(conn: asyncpg.Connection) -> list[asyncpg.Record]:
@@ -91,6 +92,7 @@ async def run_certification_check(pool: asyncpg.Pool) -> int:
                     )
                     if alert:
                         created += 1
+                        await create_finding_from_alert(conn, str(v["id"]), alert)
             await _touch_source(conn, "cert_registry", True)
         except Exception as e:  # noqa: BLE001 — recorded on the source row, then re-raised
             await _touch_source(conn, "cert_registry", False, str(e))
@@ -125,6 +127,7 @@ async def run_breach_check(pool: asyncpg.Pool) -> int:
                         )
                         if alert:
                             created += 1
+                            await create_finding_from_alert(conn, str(v["id"]), alert)
             await _touch_source(conn, "breach_vuln", True)
         except Exception as e:  # noqa: BLE001
             await _touch_source(conn, "breach_vuln", False, str(e))
@@ -176,6 +179,7 @@ async def run_financial_check(pool: asyncpg.Pool) -> int:
                     )
                     if alert:
                         created += 1
+                        await create_finding_from_alert(conn, str(v["id"]), alert)
             await _touch_source(conn, "financial", True)
         except Exception as e:  # noqa: BLE001
             await _touch_source(conn, "financial", False, str(e))

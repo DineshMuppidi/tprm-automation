@@ -1,6 +1,6 @@
 import type {
-  AlertOut, AssessmentDetail, AssessmentSummary, MonitoringStatusOut, RiskBreakdown, RunChecksOut,
-  TemplateOut, VendorOut, VendorRiskEntry,
+  AlertOut, AssessmentDetail, AssessmentSummary, ExceptionOut, FindingDetail, FindingSummary,
+  KPIReport, MonitoringStatusOut, RiskBreakdown, RunChecksOut, TemplateOut, VendorOut, VendorRiskEntry,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -125,6 +125,36 @@ export const api = {
   monitoringStatus: () => request<MonitoringStatusOut>("/admin/monitoring/status", { asAdmin: true }),
   riskScoreboard: () => request<VendorRiskEntry[]>("/admin/monitoring/scoreboard", { asAdmin: true }),
   runMonitoringChecks: () => request<RunChecksOut>("/admin/monitoring/run-checks", { method: "POST", asAdmin: true }),
+
+  // Findings — vendor-facing
+  myFindings: () => request<FindingSummary[]>("/findings/mine"),
+  getFinding: (id: string) => request<FindingDetail>(`/findings/${id}`),
+  acknowledgeFinding: (id: string) => request<FindingDetail>(`/findings/${id}/acknowledge`, { method: "POST" }),
+  submitPlan: (id: string, plan_text: string) => request<FindingDetail>(`/findings/${id}/plan`, { method: "PUT", body: { plan_text } }),
+  uploadFindingEvidence: (id: string, file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return request(`/findings/${id}/evidence`, { method: "POST", formData: fd });
+  },
+  submitFinding: (id: string) => request<FindingDetail>(`/findings/${id}/submit`, { method: "POST" }),
+  addFindingComment: (id: string, body: string, asAdmin = false) =>
+    request<FindingDetail>(`/findings/${id}/comments`, { method: "POST", body: { body }, asAdmin }),
+  requestException: (id: string, justification: string, compensating_controls: string) =>
+    request<ExceptionOut>(`/findings/${id}/request-exception`, { method: "POST", body: { justification, compensating_controls } }),
+
+  // Findings — admin
+  adminListFindings: (filters: { vendor_id?: string; status?: string; severity?: string } = {}) => {
+    const params = new URLSearchParams(Object.entries(filters).filter(([, v]) => v) as [string, string][]);
+    const qs = params.toString();
+    return request<FindingSummary[]>(`/admin/findings${qs ? `?${qs}` : ""}`, { asAdmin: true });
+  },
+  adminGetFinding: (id: string) => request<FindingDetail>(`/findings/${id}`, { asAdmin: true }),
+  adminCloseFinding: (id: string, note: string) => request<FindingDetail>(`/admin/findings/${id}/close`, { method: "POST", body: { note }, asAdmin: true }),
+  adminRejectFinding: (id: string, note: string) => request<FindingDetail>(`/admin/findings/${id}/reject`, { method: "POST", body: { note }, asAdmin: true }),
+  adminListExceptions: () => request<ExceptionOut[]>("/admin/exceptions", { asAdmin: true }),
+  adminApproveException: (id: string) => request<ExceptionOut>(`/admin/exceptions/${id}/approve`, { method: "POST", asAdmin: true }),
+  adminRunFindingEscalationCheck: () => request<Record<string, number>>("/admin/findings/run-escalation-check", { method: "POST", asAdmin: true }),
+  kpiReport: () => request<KPIReport>("/admin/reporting/kpis", { asAdmin: true }),
 };
 
 export { ApiError, BASE_URL };

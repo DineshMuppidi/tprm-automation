@@ -11,8 +11,9 @@ from app.schemas.assessment import (
     RiskBreakdown,
 )
 from app.services import assessment_service as svc
-from app.services.email_service import send_completion_email
+from app.services.email_service import send_completion_email, send_findings_assigned_email
 from app.services.llm_analyzer import EvidenceContext, QuestionContext, get_llm_provider
+from app.services.remediation import finding_generator
 from app.services.report_generator import generate_assessment_report_pdf
 from app.services.storage import infer_document_type, save_evidence_file
 
@@ -311,6 +312,8 @@ async def submit_assessment(
         )
         await _audit(conn, ctx, "assessment.submitted", assessment_id, {"overall_score": breakdown["overall_score"]})
 
+        new_findings = await finding_generator.generate_findings_from_assessment(conn, assessment_id)
+
         contact = await conn.fetchrow("SELECT email FROM vendor_contacts WHERE vendor_id = $1 AND is_primary LIMIT 1", row["vendor_id"])
 
         row = await _load_assessment_row(conn, assessment_id)
@@ -318,6 +321,8 @@ async def submit_assessment(
 
     if contact:
         send_completion_email(contact["email"], row["vendor_name"], breakdown["overall_score"])
+        if new_findings:
+            send_findings_assigned_email(contact["email"], row["vendor_name"], len(new_findings))
 
     visible = svc.visible_questions(questions, responses)
     return {

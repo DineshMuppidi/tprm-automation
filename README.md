@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
 ![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL%2015%2B-336791)
-![Status](https://img.shields.io/badge/status-Phase%202%20%E2%80%94%20monitoring%20%26%20alerts-blue)
+![Status](https://img.shields.io/badge/status-Phase%203%20%E2%80%94%20remediation%20workflow-blue)
 ![No Paid Services Required](https://img.shields.io/badge/monitoring%20APIs-mockable%2C%20no%20paid%20keys%20required-informational)
 
 Portfolio project: a production-shaped Third-Party Risk Management platform
@@ -122,6 +122,55 @@ DAG task is a thin wrapper calling straight into
 integration) — see that directory's `README.md` for the honest version of
 this tradeoff and how to actually deploy them.
 
+## What's built (Phase 3)
+
+- **Finding generation, two triggers**: a completed assessment's weak/
+  missing/contradictory responses become findings automatically (severity
+  and due-date per the spec's own table — critical: 30 days, high: 60,
+  medium: 90, low: 120); a critical/high monitoring alert opens one too
+  (breach alerts get the richer Phase 2 impact-assessment treatment, cert/
+  CVE/financial ones get a direct finding). See
+  [`finding_generator.py`](backend/app/services/remediation/finding_generator.py).
+- **Remediation state machine**: `new → assigned → in_progress → submitted
+  → validating → closed`, with `rejected` as a real, visible "send it back
+  for revision" state (not a dead end) reachable from either a
+  non-credible plan or insufficient evidence — see
+  [`state-machine.md`](docs/remediation/state-machine.md) for the full
+  diagram and the reasoning behind that design choice.
+- **LLM-powered plan and evidence review**: does the vendor's remediation
+  plan name concrete actions and a timeline, or is it vague hand-waving?
+  Does the uploaded evidence actually prove the fix, or (the spec's own
+  example) is it a screenshot of one account claiming org-wide MFA? See
+  [`evidence-validation-guide.md`](docs/remediation/evidence-validation-guide.md).
+- **Escalation & accountability**: unacknowledged findings get a daily
+  reminder; overdue findings notify category management; findings overdue
+  14+ days escalate to Legal (once, tracked via the audit trail so it
+  doesn't re-fire daily); repeated rejected submissions flag for
+  compliance review.
+- **Exceptions**: a vendor who can't remediate requests one with a
+  justification and compensating controls; compliance approves it, which
+  formally accepts the risk (a *partial* risk-score reduction, not a full
+  one — the gap is still there, just knowingly tolerated).
+- **Vendor self-service** (`/findings`): view assigned findings, submit a
+  plan, upload evidence, message the compliance team, request an
+  exception — all with inline feedback from the LLM review, not a black
+  box that just says "rejected."
+- **Compliance dashboard** (`/admin/findings`): all findings with
+  filters, vendor performance (closure rate, overdue count), pending
+  exceptions, and KPI cards (MTTR by severity, rework rate, evidence
+  coverage) — see
+  [`remediation-playbook.md`](docs/remediation/remediation-playbook.md)
+  for the spec's own 90-day scenario walked through against these exact
+  endpoints.
+- A `daily_finding_escalation_check` Airflow DAG (same "not executed
+  here, written correctly, service layer is what's tested" honesty as
+  Phase 2's monitoring DAGs).
+
+One gap, documented rather than glossed over: "risk improvement" in the
+Phase 3 spec means a before/after trend, and this build only reports the
+*current* risk distribution — there's no `risk_score_history` snapshot
+mechanism yet. See `reporting.py`'s module docstring.
+
 ## Running it
 
 Prerequisites: Python 3.11+, Node 20+, PostgreSQL 15+.
@@ -148,9 +197,13 @@ npm run dev                          # http://localhost:5173
 Open the login URL `seed_demo_data.py` printed to walk through the
 questionnaire as the demo vendor, or open `/admin` (key from
 `ADMIN_API_KEY` in `.env`, default `dev-admin-key`) to assign a fresh one.
-Open `/admin/monitoring` and click **Run checks now** to see the demo
-vendor's alerts, risk score, and auto-created incident finding appear live
-— that button runs exactly what the Airflow DAGs would run on a schedule.
+Completing that assessment auto-generates findings you can then work
+through at `/findings` as the vendor. Open `/admin/monitoring` and click
+**Run checks now** to see the demo vendor's alerts, risk score, and
+auto-created incident finding appear live — that button runs exactly what
+the Airflow DAGs would run on a schedule. `/admin/findings` is the
+compliance-side view: all findings, vendor performance, pending
+exceptions, and KPIs.
 
 External monitoring integrations (HIBP, NewsAPI, D&B, and the cert
 registries) default to `mock` providers so the platform runs fully offline
@@ -161,7 +214,7 @@ real ones. `LLM_PROVIDER` and `EMAIL_PROVIDER` follow the same pattern
 
 **Tests**
 ```bash
-cd backend && source venv/bin/activate && pytest   # 27 tests: scoring, LLM analyzer, monitoring/alerts, full API flow
+cd backend && source venv/bin/activate && pytest   # 46 tests: scoring, LLM analyzer, monitoring/alerts, remediation workflow, full API flow
 ```
 Two of those tests (`test_live_providers_network.py`) call the real NVD
 and SEC EDGAR APIs and skip themselves automatically if the network is
@@ -176,7 +229,7 @@ unreachable.
 - [x] **Phase 2 — Continuous Monitoring & Alerts**: cert/breach/CVE/news/
       financial-distress monitoring via Airflow, alert routing & escalation,
       incident impact assessment
-- [ ] **Phase 3 — Remediation Workflow**: finding-to-closure state machine,
+- [x] **Phase 3 — Remediation Workflow**: finding-to-closure state machine,
       evidence validation engine, escalation & exception handling, KPI
       reporting
 - [ ] **Phase 4 — Advanced Features**: contract parsing & compliance

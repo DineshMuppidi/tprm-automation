@@ -1,8 +1,16 @@
 import { useRef, useState } from "react";
-import type { EvidenceOut } from "../lib/types";
+
+// Structural, not imported from lib/types — both EvidenceOut (assessment
+// evidence) and FindingEvidence (remediation evidence) satisfy this with
+// no adapter needed; this component only ever reads these three fields.
+interface EvidenceLike {
+  id: string;
+  document_type: string;
+  original_filename: string;
+}
 
 interface Props {
-  evidence: EvidenceOut[];
+  evidence: EvidenceLike[];
   readOnly: boolean;
   onUpload: (file: File) => Promise<void>;
 }

@@ -107,3 +107,31 @@ def send_completion_email(to: str, vendor_name: str, overall_score: float) -> No
         f"risk owner shortly.\n\n— TPRM Automation Platform"
     )
     get_email_provider().send(Email(to=to, subject=f"Assessment Complete — {vendor_name}", body=body))
+
+
+# --- Phase 3: remediation workflow ------------------------------------------
+
+def send_findings_assigned_email(to: str, vendor_name: str, count: int) -> None:
+    body = (
+        f"Hello,\n\n{count} finding(s) requiring remediation have been assigned to "
+        f"{vendor_name} based on your recent assessment.\n\nPlease log in to the vendor "
+        f"portal to review each finding's deadline and required evidence, and submit a "
+        f"remediation plan for each.\n\n— TPRM Automation Platform"
+    )
+    get_email_provider().send(Email(to=to, subject=f"Remediation Required — {vendor_name} ({count} finding(s))", body=body))
+
+
+def send_finding_update_email(to: str, vendor_name: str, finding_title: str, message: str) -> None:
+    """Generic notification for a finding's state changing in a way that
+    needs the vendor's attention (plan rejected, evidence needs clarification,
+    finding closed, deadline reminder/escalation)."""
+    body = f"Hello,\n\nRegarding finding: {finding_title}\n({vendor_name})\n\n{message}\n\n— TPRM Automation Platform"
+    get_email_provider().send(Email(to=to, subject=f"Finding Update — {finding_title[:60]}", body=body))
+
+
+def send_internal_finding_alert(to: str, vendor_name: str, finding_title: str, message: str) -> None:
+    """Internal-staff-facing equivalent of send_finding_update_email — used
+    for escalations (overdue, repeated weak submissions) routed to
+    category manager / procurement / legal rather than the vendor."""
+    body = f"Vendor: {vendor_name}\nFinding: {finding_title}\n\n{message}"
+    get_email_provider().send(Email(to=to, subject=f"[ESCALATION] {finding_title[:60]} — {vendor_name}", body=body))

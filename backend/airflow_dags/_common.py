@@ -14,12 +14,16 @@ import asyncpg  # noqa: E402
 from app.db import close_pool, connect_pool  # noqa: E402
 
 
-def run_monitoring_check(check_fn: Callable[[asyncpg.Pool], Awaitable[int]], result_key: str = "alerts_created") -> dict:
+def run_monitoring_check(check_fn: Callable[[asyncpg.Pool], Awaitable[int | dict]], result_key: str = "alerts_created") -> dict:
+    """Wraps a service-layer check function (int or dict result — the
+    monitoring checks return a count, the finding escalation check returns
+    a breakdown dict) as a plain dict under `result_key`, for the Airflow
+    task to return as its XCom value."""
     async def _inner() -> dict:
         pool = await connect_pool()
         try:
-            count = await check_fn(pool)
-            return {result_key: count}
+            result = await check_fn(pool)
+            return {result_key: result}
         finally:
             await close_pool()
 

@@ -154,3 +154,80 @@ export interface VendorRiskEntry {
   risk_score: number | null;
   open_alert_count: number;
 }
+
+export type FindingSeverity = "critical" | "high" | "medium" | "low";
+export type FindingStatus =
+  | "new" | "assigned" | "in_progress" | "submitted" | "validating"
+  | "closed" | "rejected" | "overdue" | "exception_granted";
+
+export interface FindingSummary {
+  id: string;
+  vendor_id: string;
+  vendor_name: string;
+  title: string;
+  severity: FindingSeverity;
+  status: FindingStatus;
+  due_at: string;
+  created_at: string;
+}
+
+export interface FindingComment {
+  id: string;
+  author_type: "vendor" | "internal" | "system";
+  body: string;
+  created_at: string;
+}
+
+export interface FindingEvidence {
+  id: string;
+  document_type: string;
+  original_filename: string;
+  llm_validation_result: { recommendation: string; confidence: number; reasoning: string } | null;
+  uploaded_at: string;
+}
+
+export interface FindingDetail extends FindingSummary {
+  description: string;
+  risk_rationale: string | null;
+  required_evidence: string | null;
+  remediation_plan: string | null;
+  remediation_plan_review: { credible: boolean; reasoning: string; follow_up_question: string | null } | null;
+  rejection_count: number;
+  acknowledged_at: string | null;
+  submitted_at: string | null;
+  closed_at: string | null;
+  control_ref: string | null;
+  control_title: string | null;
+  comments: FindingComment[];
+  evidence: FindingEvidence[];
+}
+
+export interface ExceptionOut {
+  id: string;
+  finding_id: string;
+  justification: string;
+  compensating_controls: string | null;
+  approved_by_id: string | null;
+  approved_at: string | null;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface KPIReport {
+  remediation_velocity: {
+    by_status: Record<string, number>;
+    mttr_days: number | null;
+    mttr_by_severity: Record<string, number>;
+    closed_last_30_days: number;
+  };
+  vendor_performance: {
+    vendor_id: string; legal_name: string; total_findings: number;
+    closed: number; overdue: number; closure_rate_pct: number;
+  }[];
+  quality: { rework_rate_pct: number; exception_rate_pct: number };
+  risk_and_regulatory: {
+    avg_vendor_risk_score: number | null;
+    vendor_risk_band_counts: { low: number; medium: number; high: number };
+    evidence_coverage_pct: number;
+  };
+}

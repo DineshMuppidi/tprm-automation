@@ -8,7 +8,10 @@ export default function Header() {
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="/assessments" className="font-semibold text-slate-900">TPRM Vendor Portal</a>
+        <div className="flex items-center gap-4">
+          <a href="/assessments" className="font-semibold text-slate-900">TPRM Vendor Portal</a>
+          {session && <a href="/findings" className="text-sm text-blue-600 hover:underline">Findings</a>}
+        </div>
         {session && (
           <div className="flex items-center gap-3 text-sm text-slate-500">
             <span>{session.vendor_name}</span>
