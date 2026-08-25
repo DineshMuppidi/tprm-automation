@@ -18,6 +18,19 @@ _TITLE = ParagraphStyle("TPRMTitle", parent=_STYLES["Title"], textColor=colors.H
 _H2 = ParagraphStyle("TPRMH2", parent=_STYLES["Heading2"], textColor=colors.HexColor("#1f3864"))
 _BODY = _STYLES["BodyText"]
 
+_TIER_LABELS = {
+    "tier_1_critical": "Tier 1 — Critical",
+    "tier_2_high": "Tier 2 — High",
+    "tier_3_medium": "Tier 3 — Medium",
+    "tier_4_low": "Tier 4 — Low",
+}
+
+_STATUS_LABELS = {
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "expired": "Expired",
+}
+
 _CLASSIFICATION_HEX = {
     "strong": "#2e7d32",
     "adequate": "#f9a825",
@@ -62,9 +75,11 @@ def generate_assessment_report_pdf(
     story.append(Paragraph("Third-Party Risk Assessment Report", _TITLE))
     story.append(Paragraph(vendor_name, _H2))
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    tier_label = _TIER_LABELS.get(tier, tier)
+    status_label = _STATUS_LABELS.get(status, status.replace("_", " ").title())
     story.append(Paragraph(
-        f"Template: {template_name} &nbsp;|&nbsp; Tier: {tier} &nbsp;|&nbsp; "
-        f"Status: {status} &nbsp;|&nbsp; Report generated: {generated}", _BODY,
+        f"Template: {template_name} &nbsp;|&nbsp; Tier: {tier_label} &nbsp;|&nbsp; "
+        f"Status: {status_label} &nbsp;|&nbsp; Report generated: {generated}", _BODY,
     ))
     story.append(Spacer(1, 0.25 * inch))
 
