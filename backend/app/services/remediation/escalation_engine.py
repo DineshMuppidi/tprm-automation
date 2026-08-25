@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 import asyncpg
 
 from app.services.email_service import send_finding_update_email, send_internal_finding_alert
+from app.services.playbooks.playbook_engine import trigger_playbook
 
 ACK_GRACE_DAYS = 3
 LEGAL_ESCALATION_OVERDUE_DAYS = 14
@@ -103,6 +104,10 @@ async def check_severely_overdue_findings(conn: asyncpg.Connection) -> int:
         await conn.execute(
             "INSERT INTO audit_logs (action, entity_type, entity_id, after_state) VALUES ('finding.legal_escalated', 'finding', $1, $2)",
             row["id"], {"days_overdue": days_overdue},
+        )
+        await trigger_playbook(
+            conn, "finding.legal_escalated", str(row["vendor_id"]),
+            {"vendor_name": row["legal_name"], "finding_title": row["title"]}, finding_id=str(row["id"]),
         )
         count += 1
     return count

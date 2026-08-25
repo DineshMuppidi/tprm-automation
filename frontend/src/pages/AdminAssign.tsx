@@ -67,6 +67,7 @@ function AdminAssignBody() {
           <span className="font-semibold text-slate-900">TPRM Admin — Assign Assessments</span>
           <a href="/admin/monitoring" className="text-sm text-blue-600 hover:underline">Monitoring dashboard →</a>
           <a href="/admin/findings" className="text-sm text-blue-600 hover:underline">Findings & remediation →</a>
+          <a href="/admin/board" className="text-sm text-blue-600 hover:underline">Board reporting →</a>
         </div>
       </header>
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">

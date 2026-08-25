@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # backend/ on path
 from app.db import connect_single  # noqa: E402
 from app.seed.seed_frameworks import seed_frameworks  # noqa: E402
 from app.seed.seed_monitoring_sources import seed_monitoring_sources  # noqa: E402
+from app.seed.seed_playbooks import seed_playbooks  # noqa: E402
 from app.seed.seed_templates import seed_templates  # noqa: E402
 from app.seed.seed_users import seed_internal_users  # noqa: E402
 
@@ -78,6 +79,10 @@ async def main() -> None:
 
         print("Seeding internal staff directory ...")
         await seed_internal_users(conn)
+        print("  Done.")
+
+        print("Seeding playbook definitions ...")
+        await seed_playbooks(conn)
         print("  Done.")
     finally:
         await conn.close()

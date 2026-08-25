@@ -18,6 +18,7 @@ from app.services.monitoring.factory import (
 )
 from app.services.monitoring.impact_assessor import create_incident_finding
 from app.services.monitoring.types import VendorInfo
+from app.services.playbooks.playbook_engine import trigger_playbook
 from app.services.remediation.finding_generator import create_finding_from_alert
 
 
@@ -93,6 +94,11 @@ async def run_certification_check(pool: asyncpg.Pool) -> int:
                     if alert:
                         created += 1
                         await create_finding_from_alert(conn, str(v["id"]), alert)
+                        if severity == "critical":
+                            await trigger_playbook(
+                                conn, "alert.cert_expiry.critical", str(v["id"]),
+                                {"vendor_name": v["legal_name"]}, alert_id=str(alert["id"]),
+                            )
             await _touch_source(conn, "cert_registry", True)
         except Exception as e:  # noqa: BLE001 — recorded on the source row, then re-raised
             await _touch_source(conn, "cert_registry", False, str(e))
@@ -117,6 +123,10 @@ async def run_breach_check(pool: asyncpg.Pool) -> int:
                         if alert:
                             created += 1
                             await create_incident_finding(conn, str(v["id"]), alert)
+                            await trigger_playbook(
+                                conn, "alert.breach.critical", str(v["id"]),
+                                {"vendor_name": v["legal_name"]}, alert_id=str(alert["id"]),
+                            )
                     else:  # 'cve'
                         severity = _cve_severity(signal.detail.get("cvss_score"))
                         alert = await alert_engine.raise_alert(
@@ -180,6 +190,11 @@ async def run_financial_check(pool: asyncpg.Pool) -> int:
                     if alert:
                         created += 1
                         await create_finding_from_alert(conn, str(v["id"]), alert)
+                        if signal.severity in ("critical", "high"):
+                            await trigger_playbook(
+                                conn, "alert.financial_distress.high", str(v["id"]),
+                                {"vendor_name": v["legal_name"]}, alert_id=str(alert["id"]),
+                            )
             await _touch_source(conn, "financial", True)
         except Exception as e:  # noqa: BLE001
             await _touch_source(conn, "financial", False, str(e))

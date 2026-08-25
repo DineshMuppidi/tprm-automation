@@ -1,6 +1,8 @@
 import type {
-  AlertOut, AssessmentDetail, AssessmentSummary, ExceptionOut, FindingDetail, FindingSummary,
-  KPIReport, MonitoringStatusOut, RiskBreakdown, RunChecksOut, TemplateOut, VendorOut, VendorRiskEntry,
+  AlertOut, AssessmentDetail, AssessmentSummary, BoardSummary, ComplianceCheckResult, ContractOut,
+  ExceptionOut, FindingDetail, FindingSummary, FrameworkCoverage, GapAnalysis, KPIReport,
+  MonitoringStatusOut, ObligationOut, PlaybookExecution, RiskBreakdown, RunChecksOut, TemplateOut,
+  VendorOut, VendorRiskEntry,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -155,6 +157,29 @@ export const api = {
   adminApproveException: (id: string) => request<ExceptionOut>(`/admin/exceptions/${id}/approve`, { method: "POST", asAdmin: true }),
   adminRunFindingEscalationCheck: () => request<Record<string, number>>("/admin/findings/run-escalation-check", { method: "POST", asAdmin: true }),
   kpiReport: () => request<KPIReport>("/admin/reporting/kpis", { asAdmin: true }),
+  boardSummary: () => request<BoardSummary>("/admin/reporting/board-summary", { asAdmin: true }),
+
+  // Contracts
+  uploadContract: (vendorId: string, file: File, contractName: string, effectiveDate: string, expirationDate?: string) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("contract_name", contractName);
+    fd.append("effective_date", effectiveDate);
+    if (expirationDate) fd.append("expiration_date", expirationDate);
+    return request<ContractOut>(`/admin/vendors/${vendorId}/contracts`, { method: "POST", formData: fd, asAdmin: true });
+  },
+  listVendorContracts: (vendorId: string) => request<ContractOut[]>(`/admin/vendors/${vendorId}/contracts`, { asAdmin: true }),
+  listContractObligations: (contractId: string) => request<ObligationOut[]>(`/admin/contracts/${contractId}/obligations`, { asAdmin: true }),
+  checkContractCompliance: (vendorId: string) =>
+    request<ComplianceCheckResult[]>(`/admin/vendors/${vendorId}/contracts/check-compliance`, { method: "POST", asAdmin: true }),
+
+  // Framework coverage
+  vendorFrameworkCoverage: (vendorId: string) => request<Record<string, FrameworkCoverage>>(`/admin/vendors/${vendorId}/framework-coverage`, { asAdmin: true }),
+  vendorGapAnalysis: (vendorId: string, targetFramework: string) =>
+    request<GapAnalysis>(`/admin/vendors/${vendorId}/framework-gap-analysis?target_framework=${targetFramework}`, { asAdmin: true }),
+
+  // Playbooks
+  listPlaybookExecutions: () => request<PlaybookExecution[]>("/admin/playbooks/executions", { asAdmin: true }),
 };
 
 export { ApiError, BASE_URL };

@@ -7,6 +7,7 @@ pydantic-settings==2.6.1
 pyjwt==2.9.0
 python-multipart==0.0.9
 reportlab==4.2.2
+pypdf==6.9.2
 anthropic==0.34.2
 python-dotenv==1.0.1
 

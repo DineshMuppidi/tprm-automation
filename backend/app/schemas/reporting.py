@@ -1,6 +1,10 @@
+from datetime import date
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
+
+from app.schemas.framework import ControlScorecardEntry
 
 
 class RemediationVelocity(BaseModel):
@@ -35,3 +39,24 @@ class KPIReport(BaseModel):
     vendor_performance: list[VendorPerformanceEntry]
     quality: QualityMetrics
     risk_and_regulatory: RiskAndRegulatory
+
+
+class ContractRenewalDue(BaseModel):
+    id: UUID
+    contract_name: str
+    expiration_date: date
+    vendor_name: str
+
+
+class HighRiskVendor(BaseModel):
+    id: UUID
+    legal_name: str
+    risk_score: float
+
+
+class BoardSummary(BaseModel):
+    vendor_risk_distribution: dict[str, int]
+    remediation: KPIReport
+    top_control_gaps: list[ControlScorecardEntry]
+    contract_renewals_due: list[ContractRenewalDue]
+    high_risk_vendors: list[HighRiskVendor]

@@ -46,6 +46,7 @@ function DashboardBody() {
             <span className="font-semibold text-slate-900">TPRM Monitoring</span>
             <a href="/admin" className="text-sm text-blue-600 hover:underline">Assign assessments →</a>
             <a href="/admin/findings" className="text-sm text-blue-600 hover:underline">Findings & remediation →</a>
+            <a href="/admin/board" className="text-sm text-blue-600 hover:underline">Board reporting →</a>
           </div>
           <div className="flex items-center gap-3">
             {openCritical > 0 && (

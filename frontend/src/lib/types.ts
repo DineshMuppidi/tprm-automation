@@ -231,3 +231,92 @@ export interface KPIReport {
     evidence_coverage_pct: number;
   };
 }
+
+export interface ControlScorecardEntry {
+  control_ref: string;
+  title: string;
+  framework_code: string;
+  vendors_covered: number;
+  vendors_total: number;
+  coverage_pct: number;
+  critical_tier_gaps: number;
+}
+
+export interface ContractRenewalDue {
+  id: string;
+  contract_name: string;
+  expiration_date: string;
+  vendor_name: string;
+}
+
+export interface HighRiskVendor {
+  id: string;
+  legal_name: string;
+  risk_score: number;
+}
+
+export interface BoardSummary {
+  vendor_risk_distribution: { total: number; critical: number; high: number; low: number };
+  remediation: KPIReport;
+  top_control_gaps: ControlScorecardEntry[];
+  contract_renewals_due: ContractRenewalDue[];
+  high_risk_vendors: HighRiskVendor[];
+}
+
+export interface FrameworkCoverage {
+  covered: number;
+  total: number;
+  pct: number;
+}
+
+export interface GapAnalysis {
+  framework_code: string;
+  covered: { control_ref: string; title: string; category: string | null }[];
+  gaps: { control_ref: string; title: string; category: string | null }[];
+  coverage_pct: number;
+}
+
+export interface ContractOut {
+  id: string;
+  vendor_id: string;
+  contract_name: string;
+  status: string;
+  effective_date: string;
+  expiration_date: string | null;
+  auto_renews: boolean;
+  renewal_notice_days: number | null;
+  extracted_terms: Record<string, unknown> | null;
+  parsed_at: string | null;
+  created_at: string;
+}
+
+export interface ObligationOut {
+  id: string;
+  contract_id: string;
+  description: string;
+  obligation_type: string;
+  check_frequency: string | null;
+  last_checked_at: string | null;
+  last_check_status: string | null;
+  next_check_due: string | null;
+}
+
+export interface ComplianceCheckResult {
+  obligation_id: string;
+  description: string;
+  status: string;
+  reason: string;
+}
+
+export interface PlaybookExecution {
+  id: string;
+  playbook_id: string;
+  playbook_code: string;
+  playbook_name: string;
+  vendor_id: string | null;
+  vendor_name: string | null;
+  status: string;
+  step_log: { type: string; at: string; [key: string]: unknown }[];
+  started_at: string;
+  completed_at: string | null;
+}

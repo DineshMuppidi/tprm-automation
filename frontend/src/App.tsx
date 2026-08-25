@@ -1,9 +1,11 @@
 import type { JSX } from "react";
 import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import AdminAssign from "./pages/AdminAssign";
+import AdminContracts from "./pages/AdminContracts";
 import AdminFindingDetail from "./pages/AdminFindingDetail";
 import AdminFindings from "./pages/AdminFindings";
 import AssessmentList from "./pages/AssessmentList";
+import BoardDashboard from "./pages/BoardDashboard";
 import FindingDetail from "./pages/FindingDetail";
 import FindingsList from "./pages/FindingsList";
 import Login from "./pages/Login";
@@ -33,6 +35,8 @@ export default function App() {
         <Route path="/admin/monitoring" element={<MonitoringDashboard />} />
         <Route path="/admin/findings" element={<AdminFindings />} />
         <Route path="/admin/findings/:id" element={<AdminFindingDetail />} />
+        <Route path="/admin/contracts" element={<AdminContracts />} />
+        <Route path="/admin/board" element={<BoardDashboard />} />
       </Routes>
     </Router>
   );

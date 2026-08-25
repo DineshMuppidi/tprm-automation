@@ -48,6 +48,7 @@ function AdminFindingsBody() {
             <span className="font-semibold text-slate-900">TPRM Findings & Remediation</span>
             <a href="/admin/monitoring" className="text-sm text-blue-600 hover:underline">Monitoring →</a>
             <a href="/admin" className="text-sm text-blue-600 hover:underline">Assign assessments →</a>
+            <a href="/admin/board" className="text-sm text-blue-600 hover:underline">Board reporting →</a>
           </div>
           <button onClick={handleRunEscalation} className="rounded-md bg-slate-700 text-white text-sm px-3 py-1.5 hover:bg-slate-800">
             Run escalation check

@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
 ![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL%2015%2B-336791)
-![Status](https://img.shields.io/badge/status-Phase%203%20%E2%80%94%20remediation%20workflow-blue)
+![Status](https://img.shields.io/badge/status-Phase%204%20%E2%80%94%20advanced%20features-blue)
 ![No Paid Services Required](https://img.shields.io/badge/monitoring%20APIs-mockable%2C%20no%20paid%20keys%20required-informational)
 
 Portfolio project: a production-shaped Third-Party Risk Management platform
@@ -171,6 +171,46 @@ Phase 3 spec means a before/after trend, and this build only reports the
 *current* risk distribution — there's no `risk_score_history` snapshot
 mechanism yet. See `reporting.py`'s module docstring.
 
+## What's built (Phase 4)
+
+- **Contract parsing** (`/admin/contracts`): upload a contract (PDF or
+  `.txt`), extract SLA/uptime, breach-notification SLA, named security
+  requirements, audit rights, liability, indemnification, and termination/
+  renewal terms — same mock/live provider split as every other LLM-backed
+  feature. The mock provider uses targeted regexes against real contract
+  language, not toy strings — see
+  [`contract-compliance.md`](docs/advanced/contract-compliance.md), which
+  also documents a real bug (numbered section headings matching before the
+  actual clause) found and fixed while smoke-testing this against an
+  actual sample contract.
+- **Contract obligation tracking & compliance checking**: each extracted
+  requirement becomes a trackable `contract_obligations` row; checking
+  compliance reuses Phase 2's alert engine outright (`contract_violation`
+  has been sitting unused in the schema's `alert_type` enum since Phase 0)
+  rather than building a parallel notification path.
+- **Cross-framework control mapping** (`/admin/board` → Vendor Coverage
+  tab): "vendor covers 85% of NIST CSF, 78% of SOC 2" made real — a
+  vendor's assessment answers are credited across frameworks by walking
+  the `control_mappings` graph seeded in Phase 0, so one NIST-framed
+  questionnaire implies SOC 2/ISO 27001/HIPAA coverage too. Includes the
+  spec's own HIPAA gap-analysis scenario ("SOC 2 certified ≠ HIPAA
+  compliant — here's exactly what's missing") and a control-gap
+  scorecard across the whole vendor base. See
+  [`control-mapping-guide.md`](docs/advanced/control-mapping-guide.md).
+- **Generalized playbook engine**: `playbook_definitions` rows (5 seeded)
+  each name a trigger and an ordered step sequence, executed and logged to
+  `playbook_executions` by one small interpreter — deliberately additive
+  to Phases 2/3's already-tested hardcoded logic, covering only the steps
+  nothing else handles yet (e.g. scheduling the 30-day post-incident
+  review after a breach, which nothing previously did). See
+  [`playbook-engine.md`](docs/advanced/playbook-engine.md) for exactly
+  what's new per playbook vs. already covered, and how to add a sixth.
+- **Board reporting dashboard** (`/admin/board`): vendor risk distribution,
+  remediation KPIs (Phase 3), top control gaps (Phase 4), upcoming
+  contract renewals, and a live playbook-execution log — one consolidated
+  view spanning three phases, matching the spec's own healthcare-org
+  quarterly board scenario.
+
 ## Running it
 
 Prerequisites: Python 3.11+, Node 20+, PostgreSQL 15+.
@@ -201,9 +241,13 @@ Completing that assessment auto-generates findings you can then work
 through at `/findings` as the vendor. Open `/admin/monitoring` and click
 **Run checks now** to see the demo vendor's alerts, risk score, and
 auto-created incident finding appear live — that button runs exactly what
-the Airflow DAGs would run on a schedule. `/admin/findings` is the
-compliance-side view: all findings, vendor performance, pending
-exceptions, and KPIs.
+the Airflow DAGs would run on a schedule, and also fires the matching
+playbooks. `/admin/findings` is the compliance-side view: all findings,
+vendor performance, pending exceptions, and KPIs. `/admin/contracts` lets
+you upload a contract for that vendor and check it for compliance;
+`/admin/board` is the consolidated board-reporting view (KPIs, control
+gaps, contract renewals, playbook execution log, and per-vendor framework
+coverage).
 
 External monitoring integrations (HIBP, NewsAPI, D&B, and the cert
 registries) default to `mock` providers so the platform runs fully offline
@@ -214,7 +258,7 @@ real ones. `LLM_PROVIDER` and `EMAIL_PROVIDER` follow the same pattern
 
 **Tests**
 ```bash
-cd backend && source venv/bin/activate && pytest   # 46 tests: scoring, LLM analyzer, monitoring/alerts, remediation workflow, full API flow
+cd backend && source venv/bin/activate && pytest   # 71 tests: scoring, LLM analyzer, monitoring/alerts, remediation workflow, contracts, framework mapping, playbooks, full API flow
 ```
 Two of those tests (`test_live_providers_network.py`) call the real NVD
 and SEC EDGAR APIs and skip themselves automatically if the network is
@@ -232,7 +276,7 @@ unreachable.
 - [x] **Phase 3 — Remediation Workflow**: finding-to-closure state machine,
       evidence validation engine, escalation & exception handling, KPI
       reporting
-- [ ] **Phase 4 — Advanced Features**: contract parsing & compliance
+- [x] **Phase 4 — Advanced Features**: contract parsing & compliance
       mapping, cross-framework control mapping (NIST CSF ↔ SOC 2 ↔ ISO
       27001 ↔ HIPAA), incident-response playbook engine
 - [ ] **Phase 5 — Production Hardening**: CI/CD, security hardening, test
