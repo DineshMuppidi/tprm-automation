@@ -1,0 +1,36 @@
+# Assumes an nginx-ingress or ALB ingress controller and cert-manager (or
+# ACM, if using the AWS Load Balancer Controller) already installed on the
+# cluster — this manifest only describes routing, not controller install.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tprm-ingress
+  namespace: tprm
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+    - hosts: ["app.tprm.example.com", "api.tprm.example.com"]
+      secretName: tprm-tls
+  rules:
+    - host: api.tprm.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tprm-backend
+                port:
+                  number: 80
+    - host: app.tprm.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tprm-frontend
+                port:
+                  number: 80

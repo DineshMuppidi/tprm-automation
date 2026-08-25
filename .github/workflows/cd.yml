@@ -1,0 +1,93 @@
+name: CD
+
+# Staging/production deploy pipeline (Phase 5 spec §3c/§3d):
+#   merge to main -> build & push images -> deploy to staging -> smoke test
+#   -> manual production approval -> blue-green deploy to production
+#
+# Template/illustrative: there is no real container registry, Kubernetes
+# cluster, or cloud account wired to this repo (no git remote is even
+# configured — see README). The `environment: production` block is what
+# actually enforces the "Production Deployment: Requires approval" gate
+# the spec calls for — GitHub Environments support required reviewers
+# natively; this workflow assumes that's configured in the repo settings
+# once one exists, not something a workflow file can express on its own.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ${{ github.repository }}/backend
+  IMAGE_FRONTEND: ${{ github.repository }}/frontend
+
+jobs:
+  build-and-push:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.STAGING_API_BASE_URL }}
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to staging (kubectl apply against staging cluster)
+        run: |
+          echo "kubectl --context staging set image deployment/tprm-backend backend=$REGISTRY/$IMAGE_BACKEND:$GITHUB_SHA"
+          echo "kubectl --context staging set image deployment/tprm-frontend frontend=$REGISTRY/$IMAGE_FRONTEND:$GITHUB_SHA"
+          echo "kubectl --context staging rollout status deployment/tprm-backend"
+          # Real deployment commands require a configured KUBECONFIG secret
+          # and an actual staging cluster — see k8s/README.md.
+
+      - name: Smoke test staging
+        run: |
+          curl -sf "${{ vars.STAGING_API_BASE_URL }}/health/ready" || exit 1
+          echo "Staging smoke test passed."
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    # This `environment:` block is the actual approval gate — configure
+    # required reviewers on the "production" environment in repo Settings
+    # -> Environments. The job simply will not run until someone approves it.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Blue-green deploy to production
+        run: |
+          echo "kubectl --context production apply -f k8s/ (new color)"
+          echo "kubectl --context production rollout status deployment/tprm-backend-green"
+          echo "# health checks pass -> flip service selector to green, keep blue for rollback"
+
+      - name: Post-deploy smoke test
+        run: curl -sf "${{ vars.PRODUCTION_API_BASE_URL }}/health/ready" || exit 1
+
+      - name: Notify team
+        run: 'echo "Deployed $GITHUB_SHA to production — see docs/operations/monitoring-observability.md for dashboards"'

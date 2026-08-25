@@ -1,0 +1,17 @@
+# Non-secret configuration. Secrets (AUTH_SECRET, ADMIN_API_KEY,
+# ANTHROPIC_API_KEY, DATABASE_URL with credentials, ...) belong in a
+# Secret, not here — see 02-secret.example.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tprm-config
+  namespace: tprm
+data:
+  LLM_PROVIDER: "mock"
+  EMAIL_PROVIDER: "console"
+  CERT_REGISTRY_PROVIDER: "mock"
+  BREACH_PROVIDER: "mock"
+  NEWS_PROVIDER: "mock"
+  FINANCIAL_PROVIDER: "mock"
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "120"
+  APP_BASE_URL: "https://app.tprm.example.com"

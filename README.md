@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
 ![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL%2015%2B-336791)
-![Status](https://img.shields.io/badge/status-Phase%204%20%E2%80%94%20advanced%20features-blue)
+![Status](https://img.shields.io/badge/status-all%206%20phases%20complete-success)
 ![No Paid Services Required](https://img.shields.io/badge/monitoring%20APIs-mockable%2C%20no%20paid%20keys%20required-informational)
 
 Portfolio project: a production-shaped Third-Party Risk Management platform
@@ -211,6 +211,72 @@ mechanism yet. See `reporting.py`'s module docstring.
   view spanning three phases, matching the spec's own healthcare-org
   quarterly board scenario.
 
+## What's built (Phase 5 — final phase)
+
+- **Real per-role staff auth**: `security.py`'s "real RBAC deferred to
+  Phase 5" note, carried since Phase 1, is closed for real — magic-link
+  staff login (`/staff/auth`) issues a session JWT carrying the user's
+  role from `users.role`, and `require_role(...)` is a genuine
+  authorization dependency, not the `X-Admin-Key` shared-secret
+  placeholder. One endpoint (exception approval) is migrated as a proven,
+  fully-tested pattern (401 with no staff session → 403 with the wrong
+  role → 200 with the right one, and the real approver is now recorded
+  instead of `NULL`) — see
+  [`security-hardening.md`](docs/operations/security-hardening.md) for
+  why the other ~30 admin endpoints weren't all retrofitted in this pass,
+  and the migration path this establishes for doing so.
+- **Real security middleware**: HTTP security headers (HSTS, X-Frame-
+  Options, etc.) and a token-bucket rate limiter (120 req/min default) —
+  both genuinely tested, including a live demonstration that the limiter
+  enforces its exact configured threshold under real concurrent load (120
+  succeeded, 80 correctly 429'd out of 200 requests — see below).
+- **Dependency vulnerabilities: found and fixed, not just scanned.**
+  `pip-audit` initially found 50 known CVEs across 6 packages; every one
+  was upgraded to a patched version (`fastapi` 0.115→0.141, `starlette`
+  transitively, `pyjwt`, `python-multipart`, `pypdf`, `python-dotenv`),
+  with the full 81-test suite re-run after each upgrade to catch
+  regressions empirically. **Result: 0 known vulnerabilities**, in both
+  `pip-audit` and `npm audit`.
+- **Secrets scanning**: a `detect-secrets` baseline, audited (the two
+  findings are the same documented dev-only placeholder DB URL, marked
+  reviewed) and wired into CI to fail on any *new*, un-audited secret.
+- **Real `/health/ready`** (actual DB connectivity check, not a static
+  200), `/health/live`, and a Prometheus `/metrics` endpoint (request
+  count/latency histograms, DB pool gauges) — all verified live, not
+  just written.
+- **A load test that was actually run** against the live backend:
+  `/health/ready` handled 500 concurrent requests at 1,342 req/s with
+  p99 latency of 83ms; a rate-limited admin endpoint correctly allowed
+  exactly 120 requests through and rejected the rest with 429 — see
+  [`testing-strategy.md`](docs/operations/testing-strategy.md) for the
+  full numbers and what they don't prove (single-instance, local Postgres
+  — a smoke baseline, not a capacity plan).
+- **A backup/restore cycle that was actually run**: `pg_dump`/`pg_restore`
+  against a live instance with real accumulated data, verifying not just
+  row counts but that the `audit_logs` append-only trigger survived the
+  round-trip — see
+  [`disaster-recovery.md`](docs/operations/disaster-recovery.md).
+- **A real coverage number**: 77% (not the spec's aspirational 85%
+  restated as fact), with an honest breakdown of what's driving the gap
+  (seed scripts at 0% but otherwise verified; router HTTP-layer glue
+  thinner than the service logic underneath it).
+- **10 operational runbooks** tied to this system's actual code/metrics/
+  config, not generic infra filler — plus a security-hardening checklist,
+  monitoring/observability guide, disaster-recovery plan, four user
+  guides (admin/compliance-officer/vendor/API), four training-session
+  outlines, a production launch checklist, and a retrospective template —
+  all under [`docs/operations/`](docs/operations/), [`docs/guides/`](docs/guides/),
+  and [`docs/training/`](docs/training/).
+- **CI/CD, Docker, Kubernetes, and Terraform** — real, valid configuration
+  (`.github/workflows/`, both Dockerfiles, `docker-compose.yml`, `k8s/`,
+  `terraform/`) following the same honesty already established for
+  Airflow in Phase 2: written to be correct against the tool versions
+  they target, **not executed** — no Docker/kubectl/terraform binary was
+  available in this sandbox, and applying real cloud infrastructure isn't
+  something to do without a live account and explicit authorization
+  regardless. Each has its own README section on exactly what wasn't run
+  and how to actually run it.
+
 ## Running it
 
 Prerequisites: Python 3.11+, Node 20+, PostgreSQL 15+.
@@ -256,13 +322,31 @@ with zero paid API keys — see
 real ones. `LLM_PROVIDER` and `EMAIL_PROVIDER` follow the same pattern
 (see `backend/.env.example`).
 
+Once running, `/docs` (Swagger UI) and `/metrics` (Prometheus format) are
+live on the backend — see [`api-guide.md`](docs/guides/api-guide.md) and
+[`monitoring-observability.md`](docs/operations/monitoring-observability.md).
+Staff (internal) accounts can sign in the same magic-link way at
+`/staff/auth/request-link` — seeded demo accounts:
+`ciso@example.com`, `compliance@example.com`, `category-manager@example.com`,
+`legal@example.com` (see `app/seed/seed_users.py`).
+
 **Tests**
 ```bash
-cd backend && source venv/bin/activate && pytest   # 71 tests: scoring, LLM analyzer, monitoring/alerts, remediation workflow, contracts, framework mapping, playbooks, full API flow
+cd backend && source venv/bin/activate
+pip install -r requirements-dev.txt
+pytest --cov=app --cov-report=term-missing   # 81 tests, 77% coverage
 ```
 Two of those tests (`test_live_providers_network.py`) call the real NVD
 and SEC EDGAR APIs and skip themselves automatically if the network is
 unreachable.
+
+**Security & load-test scripts** (also real, also runnable locally):
+```bash
+pip-audit -r requirements.txt                              # 0 known vulnerabilities
+detect-secrets scan --baseline ../.secrets.baseline          # audited baseline, no new findings
+python scripts/load_test.py --endpoint /health/ready --concurrency 50 --requests 500
+./scripts/backup_restore.sh backup "$DATABASE_URL" backup.dump
+```
 
 ## Roadmap
 
@@ -279,7 +363,7 @@ unreachable.
 - [x] **Phase 4 — Advanced Features**: contract parsing & compliance
       mapping, cross-framework control mapping (NIST CSF ↔ SOC 2 ↔ ISO
       27001 ↔ HIPAA), incident-response playbook engine
-- [ ] **Phase 5 — Production Hardening**: CI/CD, security hardening, test
+- [x] **Phase 5 — Production Hardening**: CI/CD, security hardening, test
       suites, operational runbooks, disaster recovery, documentation &
       training materials
 

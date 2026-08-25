@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://tprm:tprm@localhost:5432/tprm"
 
-    auth_secret: str = "dev-only-secret-change-me"
+    auth_secret: str = "dev-only-secret-change-me-before-any-real-deployment"
     admin_api_key: str = "dev-admin-key"
 
     llm_provider: str = "mock"          # mock | live
@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     escalation_sla_minutes_critical: int = 60
     escalation_sla_minutes_high: int = 240
     alert_suppression_default_days: int = 90
+
+    # Phase 5 hardening
+    rate_limit_requests_per_minute: int = 120
+    staff_session_ttl_hours: int = 8
 
 
 @lru_cache

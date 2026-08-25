@@ -7,7 +7,10 @@ from app.db import get_db
 from app.schemas.finding import (
     AdminNoteIn, CommentIn, ExceptionOut, ExceptionRequestIn, FindingDetail, FindingEvidenceOut, FindingSummary, PlanIn,
 )
-from app.security import AccessContext, VendorSession, get_access_context, require_admin_key, require_vendor_session
+from app.security import (
+    AccessContext, StaffSession, VendorSession, get_access_context, require_admin_key, require_role,
+    require_vendor_session,
+)
 from app.services.email_service import send_finding_update_email
 from app.services.remediation import escalation_engine, ticket_engine
 from app.services.remediation.ticket_engine import InvalidTransition
@@ -223,10 +226,18 @@ async def list_exceptions(pending_only: bool = True, pool: asyncpg.Pool = Depend
 
 
 @admin_router.post("/exceptions/{exception_id}/approve", response_model=ExceptionOut)
-async def approve_exception(exception_id: UUID, pool: asyncpg.Pool = Depends(get_db)):
+async def approve_exception(
+    exception_id: UUID, pool: asyncpg.Pool = Depends(get_db),
+    # Phase 5 RBAC proof-of-concept (see security.py's docstring): risk
+    # acceptance is a compliance-authority decision, not something any
+    # X-Admin-Key holder should be able to do — this endpoint requires a
+    # real staff session with one of these roles on top of the router's
+    # existing admin-key gate, and records who actually approved it.
+    staff: StaffSession = Depends(require_role("compliance_officer", "ciso")),
+):
     async with pool.acquire() as conn:
         try:
-            exception = await ticket_engine.approve_exception(conn, str(exception_id), None)
+            exception = await ticket_engine.approve_exception(conn, str(exception_id), str(staff.user_id))
         except InvalidTransition as e:
             raise HTTPException(status_code=400, detail=str(e))
     return dict(exception)

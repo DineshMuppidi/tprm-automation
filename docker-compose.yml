@@ -1,0 +1,63 @@
+# Local / single-VM deployment — matches the Phase 0 architecture doc's
+# "on-premise Kali Linux VM" deployment target. Not run in this sandbox
+# (no Docker daemon available); the equivalent stack (native Postgres +
+# uvicorn + Vite dev server) was what was actually verified during
+# development — see the README's "Running it" section and each phase's
+# commit message for what that verification covered.
+#
+# Usage:
+#   cp backend/.env.example backend/.env   # adjust ADMIN_API_KEY, AUTH_SECRET for anything beyond a demo
+#   docker compose up --build
+#   docker compose exec backend python db/init_db.py
+#   docker compose exec backend python db/seed_demo_data.py
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: tprm
+      POSTGRES_PASSWORD: tprm
+      POSTGRES_DB: tprm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tprm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "5432:5432"   # exposed for local psql access only — remove in anything beyond a demo
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://tprm:tprm@postgres:5432/tprm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - evidence_storage:/app/storage
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "5173:8080"
+
+volumes:
+  postgres_data:
+  evidence_storage:

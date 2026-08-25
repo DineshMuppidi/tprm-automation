@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tprm-backend
+  namespace: tprm
+  labels:
+    app: tprm-backend
+spec:
+  replicas: 2   # Phase 0 architecture: API tier scales horizontally
+  selector:
+    matchLabels:
+      app: tprm-backend
+  template:
+    metadata:
+      labels:
+        app: tprm-backend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: backend
+          image: ghcr.io/OWNER/REPO/backend:latest   # replaced by CD pipeline with a real tag
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: tprm-config
+            - secretRef:
+                name: tprm-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false   # evidence storage writes to /app/storage — see storage.py
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tprm-backend
+  namespace: tprm
+spec:
+  selector:
+    app: tprm-backend
+  ports:
+    - port: 80
+      targetPort: 8000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: tprm-backend
+  namespace: tprm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tprm-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

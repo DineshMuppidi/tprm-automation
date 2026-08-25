@@ -1,11 +1,15 @@
-"""Auth for the vendor portal (magic-link email JWTs) and a shared-secret
-gate for internal/admin endpoints.
+"""Auth for the vendor portal (magic-link email JWTs), real staff RBAC
+(also magic-link, added in Phase 5 — see StaffSession/require_role below),
+and a shared-secret gate for internal/admin endpoints not yet migrated to
+staff RBAC.
 
-The admin gate (`X-Admin-Key`) is a deliberate Phase 1 simplification: the
-schema's `users` table has no password/SSO fields yet because real
-staff auth (OAuth2 + RBAC per the Phase 0 threat model) belongs to Phase 5's
-security hardening pass, not the vendor-assessment engine. Using it for
-anything beyond local dev/demo is out of scope for this phase.
+The admin gate (`X-Admin-Key`) was a deliberate Phase 1 simplification,
+carried forward as the outer perimeter check on the whole `/admin` surface
+even after Phase 5 added real per-role auth — see
+docs/operations/security-hardening.md for why a full retrofit of every
+admin endpoint was judged riskier than worth doing in this final phase,
+and for the migration path `require_role` establishes (one endpoint,
+exception approval, is migrated as a working proof of the pattern).
 """
 
 from datetime import datetime, timedelta, timezone
@@ -73,6 +77,54 @@ def require_vendor_session(authorization: str = Header(default="")) -> VendorSes
         vendor_contact_id=UUID(payload["sub"]),
         vendor_id=UUID(payload["vendor_id"]),
     )
+
+
+def create_staff_magic_link_token(user_id: UUID, email: str) -> str:
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    payload = {
+        "purpose": "staff_magic_link", "sub": str(user_id), "email": email,
+        "iat": now, "exp": now + timedelta(minutes=settings.magic_link_ttl_minutes),
+    }
+    return jwt.encode(payload, settings.auth_secret, algorithm=ALGORITHM)
+
+
+def create_staff_session_token(user_id: UUID, role: str, full_name: str) -> str:
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    payload = {
+        "purpose": "staff_session", "sub": str(user_id), "role": role, "full_name": full_name,
+        "iat": now, "exp": now + timedelta(hours=settings.staff_session_ttl_hours),
+    }
+    return jwt.encode(payload, settings.auth_secret, algorithm=ALGORITHM)
+
+
+class StaffSession:
+    def __init__(self, user_id: UUID, role: str, full_name: str):
+        self.user_id = user_id
+        self.role = role
+        self.full_name = full_name
+
+
+def require_staff_session(authorization: str = Header(default="")) -> StaffSession:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+    token = authorization.removeprefix("Bearer ").strip()
+    payload = decode_token(token, expected_purpose="staff_session")
+    return StaffSession(user_id=UUID(payload["sub"]), role=payload["role"], full_name=payload.get("full_name", ""))
+
+
+def require_role(*roles: str):
+    """Real per-role authorization, backed by `users.role` at login time
+    (baked into the session JWT, same self-contained-token pattern as
+    vendor sessions — no DB round trip needed to authorize a request)."""
+
+    def _dependency(staff: StaffSession = Depends(require_staff_session)) -> StaffSession:
+        if staff.role not in roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Requires role: {', '.join(roles)}")
+        return staff
+
+    return _dependency
 
 
 def require_admin_key(x_admin_key: str = Header(default="")) -> None:
