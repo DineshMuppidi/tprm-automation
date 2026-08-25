@@ -1,0 +1,18 @@
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+dist/
+build/
+
+.env
+.env.local
+*.pem
+
+# local Postgres data if run outside Docker
+pgdata/
+
+# generated reports / uploaded evidence (never committed — lives in S3/local storage)
+backend/storage/
+reports/*.pdf
