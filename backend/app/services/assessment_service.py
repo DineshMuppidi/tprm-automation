@@ -107,6 +107,7 @@ def build_question_out(q: asyncpg.Record) -> dict:
 def build_response_out(question_id: UUID, resp: asyncpg.Record | None) -> dict:
     if resp is None:
         return {
+            "id": None,
             "question_id": question_id,
             "raw_answer": None,
             "analysis": {
@@ -116,6 +117,7 @@ def build_response_out(question_id: UUID, resp: asyncpg.Record | None) -> dict:
             },
         }
     return {
+        "id": resp["id"],
         "question_id": question_id,
         "raw_answer": resp["raw_answer"],
         "analysis": {

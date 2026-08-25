@@ -32,6 +32,7 @@ class AnalysisOut(BaseModel):
 
 
 class ResponseOut(BaseModel):
+    id: UUID | None   # assessment_responses.id — None until the vendor's first save; used to correlate evidence
     question_id: UUID
     raw_answer: str | None
     analysis: AnalysisOut
@@ -87,3 +88,11 @@ class AssignAssessmentIn(BaseModel):
     vendor_id: UUID
     template_id: UUID
     due_in_days: int | None = None
+
+
+class AssignAssessmentOut(AssessmentSummary):
+    # Only populated when EMAIL_PROVIDER=console (i.e. no real mail is being
+    # sent) — a local-dev convenience so the admin UI can hand the vendor a
+    # working link without tailing backend logs. Never populated once a real
+    # email provider is configured.
+    dev_login_url: str | None = None

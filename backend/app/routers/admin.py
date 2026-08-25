@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from app.config import get_settings
 from app.db import get_db
-from app.schemas.assessment import AssignAssessmentIn, AssessmentSummary
+from app.schemas.assessment import AssignAssessmentIn, AssignAssessmentOut, AssessmentSummary
 from app.schemas.vendor import TemplateOut, VendorCreateIn, VendorOut
 from app.security import create_magic_link_token, require_admin_key
 from app.services import assessment_service as svc
@@ -93,7 +93,7 @@ async def list_all_assessments(vendor_id: UUID | None = None, pool: asyncpg.Pool
         return out
 
 
-@router.post("/assessments", response_model=AssessmentSummary, status_code=201)
+@router.post("/assessments", response_model=AssignAssessmentOut, status_code=201)
 async def assign_assessment(body: AssignAssessmentIn, pool: asyncpg.Pool = Depends(get_db)):
     settings = get_settings()
     async with pool.acquire() as conn:
@@ -113,6 +113,7 @@ async def assign_assessment(body: AssignAssessmentIn, pool: asyncpg.Pool = Depen
             body.vendor_id, body.template_id, due_at,
         )
 
+        login_url = None
         if contact:
             token = create_magic_link_token(contact["id"], contact["email"])
             login_url = f"{settings.app_base_url}/verify?token={token}"
@@ -124,4 +125,5 @@ async def assign_assessment(body: AssignAssessmentIn, pool: asyncpg.Pool = Depen
         "status": row["status"], "assigned_at": row["assigned_at"], "due_at": row["due_at"],
         "completed_at": row["completed_at"], "overall_score": None,
         "progress_pct": 0.0,
+        "dev_login_url": login_url if settings.email_provider == "console" else None,
     }
