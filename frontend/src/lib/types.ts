@@ -96,3 +96,61 @@ export interface TemplateOut {
   tier: string;
   question_count: number;
 }
+
+export type AlertSeverity = "critical" | "high" | "medium" | "low";
+export type AlertStatus = "new" | "acknowledged" | "escalated" | "resolved" | "suppressed";
+
+export interface AlertOut {
+  id: string;
+  vendor_id: string;
+  vendor_name: string;
+  alert_type: string;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  title: string;
+  payload: Record<string, unknown>;
+  risk_score_delta: number | null;
+  detected_at: string;
+  acknowledged_at: string | null;
+  escalated_at: string | null;
+  resolved_at: string | null;
+}
+
+export interface MonitoringSourceStatus {
+  code: string;
+  name: string;
+  is_enabled: boolean;
+  last_checked_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+}
+
+export interface MonitoringStats {
+  alerts_this_week: number;
+  escalated_this_week: number;
+  resolved_this_week: number;
+  avg_ack_minutes: number | null;
+}
+
+export interface MonitoringStatusOut {
+  sources: MonitoringSourceStatus[];
+  stats: MonitoringStats;
+}
+
+export interface RunChecksOut {
+  cert_expiry: number;
+  breach_cve: number;
+  news: number;
+  financial: number;
+  escalations: number;
+  ran_at: string;
+}
+
+export interface VendorRiskEntry {
+  id: string;
+  legal_name: string;
+  tier: string;
+  status: string;
+  risk_score: number | null;
+  open_alert_count: number;
+}

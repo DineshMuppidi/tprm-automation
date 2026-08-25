@@ -1,5 +1,6 @@
 import type {
-  AssessmentDetail, AssessmentSummary, RiskBreakdown, TemplateOut, VendorOut,
+  AlertOut, AssessmentDetail, AssessmentSummary, MonitoringStatusOut, RiskBreakdown, RunChecksOut,
+  TemplateOut, VendorOut, VendorRiskEntry,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -111,6 +112,19 @@ export const api = {
     request<AssessmentSummary & { dev_login_url?: string | null }>(
       "/admin/assessments", { method: "POST", body: { vendor_id, template_id }, asAdmin: true },
     ),
+
+  listAlerts: (filters: { vendor_id?: string; severity?: string; status?: string; alert_type?: string } = {}) => {
+    const params = new URLSearchParams(Object.entries(filters).filter(([, v]) => v) as [string, string][]);
+    const qs = params.toString();
+    return request<AlertOut[]>(`/admin/monitoring/alerts${qs ? `?${qs}` : ""}`, { asAdmin: true });
+  },
+  acknowledgeAlert: (id: string) => request<AlertOut>(`/admin/monitoring/alerts/${id}/acknowledge`, { method: "POST", body: {}, asAdmin: true }),
+  resolveAlert: (id: string) => request<AlertOut>(`/admin/monitoring/alerts/${id}/resolve`, { method: "POST", asAdmin: true }),
+  suppressAlert: (id: string, reason: string) =>
+    request<AlertOut>(`/admin/monitoring/alerts/${id}/suppress`, { method: "POST", body: { reason }, asAdmin: true }),
+  monitoringStatus: () => request<MonitoringStatusOut>("/admin/monitoring/status", { asAdmin: true }),
+  riskScoreboard: () => request<VendorRiskEntry[]>("/admin/monitoring/scoreboard", { asAdmin: true }),
+  runMonitoringChecks: () => request<RunChecksOut>("/admin/monitoring/run-checks", { method: "POST", asAdmin: true }),
 };
 
 export { ApiError, BASE_URL };

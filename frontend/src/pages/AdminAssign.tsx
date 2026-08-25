@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import AdminGate from "../components/AdminGate";
 import TemplateSelector from "../components/TemplateSelector";
-import { api, ApiError, getAdminKey, setAdminKey } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import type { AssessmentSummary, TemplateOut, VendorOut } from "../lib/types";
 
 const TIERS = [
@@ -11,9 +12,7 @@ const TIERS = [
 ];
 const DATA_ACCESS_LEVELS = ["none", "internal_only", "confidential", "restricted_pii", "phi"];
 
-export default function AdminAssign() {
-  const [adminKey, setAdminKeyState] = useState(getAdminKey());
-  const [unlocked, setUnlocked] = useState(!!getAdminKey());
+function AdminAssignBody() {
   const [error, setError] = useState("");
 
   const [vendors, setVendors] = useState<VendorOut[]>([]);
@@ -32,17 +31,11 @@ export default function AdminAssign() {
 
   function refresh() {
     Promise.all([api.adminListVendors(), api.adminListTemplates(), api.adminListAssessments()])
-      .then(([v, t, a]) => { setVendors(v); setTemplates(t); setAssessments(a); setUnlocked(true); setError(""); })
-      .catch(() => { setError("Invalid admin key."); setUnlocked(false); });
+      .then(([v, t, a]) => { setVendors(v); setTemplates(t); setAssessments(a); })
+      .catch(() => setError("Failed to load admin data."));
   }
 
-  useEffect(() => { if (unlocked) refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleUnlock(e: React.FormEvent) {
-    e.preventDefault();
-    setAdminKey(adminKey);
-    refresh();
-  }
+  useEffect(refresh, []);
 
   async function handleCreateVendor(e: React.FormEvent) {
     e.preventDefault();
@@ -67,29 +60,13 @@ export default function AdminAssign() {
     }
   }
 
-  if (!unlocked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <form onSubmit={handleUnlock} className="bg-white rounded-xl border border-slate-200 p-8 w-full max-w-sm space-y-3">
-          <h1 className="text-lg font-semibold">Admin Access</h1>
-          <input
-            type="password" placeholder="Admin key" value={adminKey}
-            onChange={(e) => setAdminKeyState(e.target.value)}
-            className="w-full rounded-md border border-slate-300 p-2 text-sm"
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button className="w-full rounded-md bg-blue-600 text-white text-sm font-medium py-2 hover:bg-blue-700">
-            Unlock
-          </button>
-        </form>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="max-w-4xl mx-auto px-4 py-3 font-semibold text-slate-900">TPRM Admin — Assign Assessments</div>
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
+          <span className="font-semibold text-slate-900">TPRM Admin — Assign Assessments</span>
+          <a href="/admin/monitoring" className="text-sm text-blue-600 hover:underline">Monitoring dashboard →</a>
+        </div>
       </header>
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
         <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
@@ -185,5 +162,13 @@ export default function AdminAssign() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function AdminAssign() {
+  return (
+    <AdminGate probe={() => api.adminListVendors()}>
+      <AdminAssignBody />
+    </AdminGate>
   );
 }

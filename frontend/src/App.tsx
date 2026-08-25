@@ -3,6 +3,7 @@ import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-d
 import AdminAssign from "./pages/AdminAssign";
 import AssessmentList from "./pages/AssessmentList";
 import Login from "./pages/Login";
+import MonitoringDashboard from "./pages/MonitoringDashboard";
 import Questionnaire from "./pages/Questionnaire";
 import Result from "./pages/Result";
 import Verify from "./pages/Verify";
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/assessments/:id" element={<RequireSession><Questionnaire /></RequireSession>} />
         <Route path="/assessments/:id/result" element={<RequireSession><Result /></RequireSession>} />
         <Route path="/admin" element={<AdminAssign />} />
+        <Route path="/admin/monitoring" element={<MonitoringDashboard />} />
       </Routes>
     </Router>
   );

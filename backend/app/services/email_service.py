@@ -79,6 +79,26 @@ def send_assignment_email(to: str, vendor_name: str, magic_link_url: str, due_at
     get_email_provider().send(Email(to=to, subject=f"Security Assessment Requested — {vendor_name}", body=body))
 
 
+def send_alert_notification(
+    to: str, *, vendor_name: str, severity: str, alert_type: str, title: str,
+    detail_lines: list[str], risk_score_before: float | None, risk_score_after: float | None,
+) -> None:
+    """Phase 2 §3 alert payload, as plain text — same content whichever
+    severity, since severity/routing is decided before this is called."""
+    lines = [
+        f"{severity.upper()} ALERT: {title}", "---",
+        f"Vendor: {vendor_name}", f"Alert Type: {alert_type.replace('_', ' ').title()}",
+        *detail_lines,
+    ]
+    if risk_score_before is not None and risk_score_after is not None:
+        lines.append(f"Risk Score Impact: Was {risk_score_before:.0f}/100 -> Now {risk_score_after:.0f}/100")
+    lines.append("---")
+    get_email_provider().send(Email(
+        to=to, subject=f"[{severity.upper()}] {alert_type.replace('_', ' ').title()} — {vendor_name}",
+        body="\n".join(lines),
+    ))
+
+
 def send_completion_email(to: str, vendor_name: str, overall_score: float) -> None:
     body = (
         f"Hello,\n\nThank you for completing the security assessment for "

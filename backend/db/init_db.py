@@ -18,7 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # backend/ on path
 
 from app.db import connect_single  # noqa: E402
 from app.seed.seed_frameworks import seed_frameworks  # noqa: E402
+from app.seed.seed_monitoring_sources import seed_monitoring_sources  # noqa: E402
 from app.seed.seed_templates import seed_templates  # noqa: E402
+from app.seed.seed_users import seed_internal_users  # noqa: E402
 
 SCHEMA_PATH = Path(__file__).parent / "schema" / "schema.sql"
 
@@ -46,6 +48,13 @@ async def main() -> None:
 
         print("Seeding questionnaire templates ...")
         await seed_templates(conn, control_ids)
+        print("  Done.")
+
+        print("Seeding monitoring sources ...")
+        await seed_monitoring_sources(conn)
+
+        print("Seeding internal staff directory ...")
+        await seed_internal_users(conn)
         print("  Done.")
     finally:
         await conn.close()
