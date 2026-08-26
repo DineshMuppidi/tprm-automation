@@ -53,6 +53,37 @@ Supporting docs from the same design pass:
 can change a vendor's risk score, status, or contract state. See the threat
 model for why that's load-bearing, not incidental.
 
+## Screenshots
+
+Vendor portal:
+
+| Assessment result | Findings & remediation |
+|---|---|
+| ![Assessment result](assets/screenshots/vendor-assessment-result.jpg) | ![Findings list](assets/screenshots/vendor-findings-list.jpg) |
+| Compliance score, risk gauge, per-control breakdown — driven by the mock LLM's evidence-aware scoring. | Auto-generated from assessment gaps and monitoring alerts, one card per finding. |
+
+| Remediation plan submission |
+|---|
+| ![Remediation plan](assets/screenshots/finding-remediation-plan.jpg) |
+| Acknowledge → submit plan → evidence review, the same state machine from Phase 3. |
+
+Admin / compliance-team side, seeded with a 16-vendor demo portfolio (`backend/db/seed_demo_portfolio.py`):
+
+| Board reporting | Cross-framework control gaps |
+|---|---|
+| ![Board overview](assets/screenshots/admin-board-overview.jpg) | ![Control gaps](assets/screenshots/admin-control-gaps.jpg) |
+| KPIs across the whole portfolio — findings, MTTR, exception rate, risk bands. | NIST CSF 2.0 / SOC 2 / ISO 27001 / HIPAA gaps in one table, walking the Phase 4 control-mapping graph. |
+
+| Per-vendor framework coverage | Continuous monitoring alerts |
+|---|---|
+| ![Vendor coverage](assets/screenshots/admin-vendor-coverage.jpg) | ![Monitoring alerts](assets/screenshots/admin-monitoring-alerts.jpg) |
+| A single NIST-framed assessment credited across SOC 2/ISO/HIPAA too. | Real alerts from the mock cert/breach/news/financial providers, with risk-score deltas. |
+
+| Vendor risk scoreboard | Assessment pipeline |
+|---|---|
+| ![Risk scoreboard](assets/screenshots/admin-vendor-risk-scoreboard.jpg) | ![Assign assessments](assets/screenshots/admin-assign-assessments.jpg) |
+| Every vendor, tier, open-alert count, and current risk score, color-coded. | Assigned / in-progress / completed, across all four tiers at once. |
+
 ## What's built (Phase 1)
 
 - **Vendor portal** (React + Tailwind): passwordless magic-link login,
@@ -292,6 +323,12 @@ python db/init_db.py                 # applies schema.sql + seeds frameworks/tem
 python db/seed_demo_data.py          # creates a demo vendor + prints a login URL
 uvicorn app.main:app --reload        # http://localhost:8000
 ```
+
+Once the backend is running, `python db/seed_demo_portfolio.py` adds a
+~15-vendor demo portfolio (all four tiers, varying assessment quality and
+pipeline stage) on top of the single demo vendor above — useful for seeing
+the board/monitoring/control-gap dashboards with more than one vendor in
+them (the screenshots above were taken against this seeded portfolio).
 
 **Frontend**
 ```bash
