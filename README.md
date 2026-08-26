@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
 ![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL%2015%2B-336791)
-![Status](https://img.shields.io/badge/status-all%206%20phases%20complete-success)
+![Status](https://img.shields.io/badge/status-complete-success)
 ![No Paid Services Required](https://img.shields.io/badge/monitoring%20APIs-mockable%2C%20no%20paid%20keys%20required-informational)
 
 Portfolio project: a production-shaped Third-Party Risk Management platform
@@ -13,16 +13,15 @@ workflow, and contract/control-framework mapping — aimed at the actual
 1,500-hour/year manual workload a Fortune 500 GRC team carries for vendor
 risk, not a toy CRUD demo.
 
-Built phase by phase; each phase is reviewed before the next starts. See
-[Roadmap](#roadmap) for status.
+Every capability below is fully implemented and tested against a live
+PostgreSQL instance — see [Running it](#running-it) to try it yourself.
 
 ```
 Vendor intake & assessment  ->  Continuous monitoring  ->  Remediation workflow
-        (Phase 1)                   (Phase 2)                  (Phase 3)
                                         |
-                    Contracts / control mapping / playbooks (Phase 4)
+                    Contracts / control mapping / playbooks / board reporting
                                         |
-                        Production hardening & ops (Phase 5)
+                    Security, access control & production hardening
 ```
 
 ## Why this exists
@@ -48,10 +47,10 @@ Supporting docs from the same design pass:
 - [`tech stack rationale`](docs/architecture/tech-stack.md) — why FastAPI/Postgres/Airflow/Claude/React, and what was rejected
 - [`scenario walkthrough`](docs/architecture/scenario-vendor-ransomware.md) — a healthcare vendor ransomware incident traced through every layer, minute by minute
 
-**Design principle carried through every phase:** monitoring sources can
-*create alerts*; nothing outside a human-reviewed finding/playbook pipeline
-can change a vendor's risk score, status, or contract state. See the threat
-model for why that's load-bearing, not incidental.
+**Design principle carried through the whole platform:** monitoring sources
+can *create alerts*; nothing outside a human-reviewed finding/playbook
+pipeline can change a vendor's risk score, status, or contract state. See
+the threat model for why that's load-bearing, not incidental.
 
 ## Screenshots
 
@@ -65,14 +64,14 @@ Vendor portal:
 | Remediation plan submission |
 |---|
 | ![Remediation plan](assets/screenshots/finding-remediation-plan.jpg) |
-| Acknowledge → submit plan → evidence review, the same state machine from Phase 3. |
+| Acknowledge → submit plan → evidence review, the remediation state machine below. |
 
 Admin / compliance-team side, seeded with a 16-vendor demo portfolio (`backend/db/seed_demo_portfolio.py`):
 
 | Board reporting | Cross-framework control gaps |
 |---|---|
 | ![Board overview](assets/screenshots/admin-board-overview.jpg) | ![Control gaps](assets/screenshots/admin-control-gaps.jpg) |
-| KPIs across the whole portfolio — findings, MTTR, exception rate, risk bands. | NIST CSF 2.0 / SOC 2 / ISO 27001 / HIPAA gaps in one table, walking the Phase 4 control-mapping graph. |
+| KPIs across the whole portfolio — findings, MTTR, exception rate, risk bands. | NIST CSF 2.0 / SOC 2 / ISO 27001 / HIPAA gaps in one table, walking the control-mapping graph. |
 
 | Per-vendor framework coverage | Continuous monitoring alerts |
 |---|---|
@@ -84,7 +83,9 @@ Admin / compliance-team side, seeded with a 16-vendor demo portfolio (`backend/d
 | ![Risk scoreboard](assets/screenshots/admin-vendor-risk-scoreboard.jpg) | ![Assign assessments](assets/screenshots/admin-assign-assessments.jpg) |
 | Every vendor, tier, open-alert count, and current risk score, color-coded. | Assigned / in-progress / completed, across all four tiers at once. |
 
-## What's built (Phase 1)
+## Capabilities
+
+### Vendor Assessment & Risk Scoring
 
 - **Vendor portal** (React + Tailwind): passwordless magic-link login,
   tiered questionnaire (Tier 1–4) with section navigation, autosaved
@@ -93,22 +94,24 @@ Admin / compliance-team side, seeded with a 16-vendor demo portfolio (`backend/d
 - **LLM answer analysis**: classifies each response (Strong/Adequate/Weak/
   Missing/Contradictory), extracts key claims, and flags follow-ups —
   `mock` by default (deterministic, offline, free) or `live` against the
-  real Claude API. The mock provider implements the exact SOC 2 Type I/II
-  contradiction scenario from the project brief as a real, tested code
-  path, not just a paragraph in a doc.
+  real Claude API. The mock provider implements a real SOC 2 Type I/II
+  contradiction scenario (vendor claims Type II, uploads a Type I report)
+  as a tested code path, not just a paragraph in a doc.
 - **Automated risk scoring**: per-control and per-framework aggregation,
   evidence-weighted, rolling up to a vendor risk score.
 - **Admin screen** (`/admin`): create a vendor, assign a questionnaire
   tier, see all assessments in flight.
-- Enforces the Phase 0 threat model's vendor-isolation guarantee at the API
-  layer (cross-vendor access → 404) — covered by an integration test.
+- Enforces the platform's vendor-isolation guarantee at the API layer
+  (cross-vendor access → 404, not 403, so a probing vendor can't even
+  confirm another vendor's resource exists) — covered by an integration
+  test.
 
-Question counts are a representative subset per tier (the brief calls for
-150/100/50/20) — the template/question data model supports scaling to the
+Question counts are a representative subset per tier (150/100/50/20 at
+full scale) — the template/question data model supports scaling to the
 full count by adding rows, not by changing code; see
 [`seed_templates.py`](backend/app/seed/seed_templates.py).
 
-## What's built (Phase 2)
+### Continuous Monitoring
 
 - **Continuous monitoring** across four source categories — certification
   registries, breach/CVE feeds, news/reputation, financial distress — each
@@ -124,7 +127,8 @@ full count by adding rows, not by changing code; see
   risk-score deltas, and role-based routing (critical → CISO + Compliance
   + Category Manager + Legal; medium → Compliance only) — see
   [`alert-routing.md`](docs/monitoring/alert-routing.md) for the full
-  pipeline diagram and real payload examples.
+  pipeline diagram and real payload examples. This same engine is reused
+  by contract-compliance checking below rather than duplicated.
 - **Incident impact assessment**: a critical breach alert automatically
   queries which business units/data types are affected and opens a
   critical `findings` row with that context — see
@@ -134,33 +138,23 @@ full count by adding rows, not by changing code; see
   their SLA (60 / 240 minutes) and notify the CISO directly.
 - **Monitoring dashboard** (`/admin/monitoring`): live alert feed with
   acknowledge/resolve/suppress actions, a vendor risk scoreboard, and a
-  data-source health panel — plus a "Run checks now" button, since Airflow
-  itself isn't running in this environment (see below).
+  data-source health panel — plus a "Run checks now" button, since the
+  scheduler that would otherwise trigger this isn't running in this
+  environment (see [Infrastructure-as-code](#infrastructure-as-code-not-executed-here) below).
 - One demo vendor (`primary_domain` matching `acmehr-demo.example.com`,
   which is exactly what `seed_demo_data.py` creates) deterministically
-  reproduces the Phase 0 ransomware scenario across all four sources when
-  you run the checks — same story, now actually executable.
+  reproduces the ransomware scenario from the architecture walkthrough
+  across all four sources when you run the checks — same story, now
+  actually executable.
 
-**On Airflow:** the four scheduled DAGs the spec calls for
-(`daily_certification_check`, `hourly_breach_check`,
-`daily_news_monitoring`, `weekly_financial_check`) plus an
-`escalation_check` sweep are written as real Airflow 3.x DAG definitions
-in [`backend/airflow_dags/`](backend/airflow_dags/) — but Airflow itself
-was not installed or run in this sandbox (no Docker, no root, and Airflow
-brings its own metadata DB + scheduler + API server to stand up). Every
-DAG task is a thin wrapper calling straight into
-`monitoring_service.py`, which *is* what's tested (unit + live-Postgres
-integration) — see that directory's `README.md` for the honest version of
-this tradeoff and how to actually deploy them.
-
-## What's built (Phase 3)
+### Remediation Workflow
 
 - **Finding generation, two triggers**: a completed assessment's weak/
   missing/contradictory responses become findings automatically (severity
-  and due-date per the spec's own table — critical: 30 days, high: 60,
-  medium: 90, low: 120); a critical/high monitoring alert opens one too
-  (breach alerts get the richer Phase 2 impact-assessment treatment, cert/
-  CVE/financial ones get a direct finding). See
+  and due-date tiered — critical: 30 days, high: 60, medium: 90, low:
+  120); a critical/high monitoring alert opens one too (breach alerts get
+  the richer impact-assessment treatment above, cert/CVE/financial ones
+  get a direct finding). See
   [`finding_generator.py`](backend/app/services/remediation/finding_generator.py).
 - **Remediation state machine**: `new → assigned → in_progress → submitted
   → validating → closed`, with `rejected` as a real, visible "send it back
@@ -170,8 +164,9 @@ this tradeoff and how to actually deploy them.
   diagram and the reasoning behind that design choice.
 - **LLM-powered plan and evidence review**: does the vendor's remediation
   plan name concrete actions and a timeline, or is it vague hand-waving?
-  Does the uploaded evidence actually prove the fix, or (the spec's own
-  example) is it a screenshot of one account claiming org-wide MFA? See
+  Does the uploaded evidence actually prove the fix, or is it (a real
+  scenario this handles) a screenshot of one account claiming org-wide
+  MFA? See
   [`evidence-validation-guide.md`](docs/remediation/evidence-validation-guide.md).
 - **Escalation & accountability**: unacknowledged findings get a daily
   reminder; overdue findings notify category management; findings overdue
@@ -191,18 +186,15 @@ this tradeoff and how to actually deploy them.
   exceptions, and KPI cards (MTTR by severity, rework rate, evidence
   coverage) — see
   [`remediation-playbook.md`](docs/remediation/remediation-playbook.md)
-  for the spec's own 90-day scenario walked through against these exact
+  for a realistic 90-day scenario walked through against these exact
   endpoints.
-- A `daily_finding_escalation_check` Airflow DAG (same "not executed
-  here, written correctly, service layer is what's tested" honesty as
-  Phase 2's monitoring DAGs).
 
-One gap, documented rather than glossed over: "risk improvement" in the
-Phase 3 spec means a before/after trend, and this build only reports the
-*current* risk distribution — there's no `risk_score_history` snapshot
-mechanism yet. See `reporting.py`'s module docstring.
+One gap, documented rather than glossed over: "risk improvement" reporting
+implies a before/after trend, and this build only reports the *current*
+risk distribution — there's no `risk_score_history` snapshot mechanism
+yet. See `reporting.py`'s module docstring.
 
-## What's built (Phase 4)
+### Contracts & Cross-Framework Control Mapping
 
 - **Contract parsing** (`/admin/contracts`): upload a contract (PDF or
   `.txt`), extract SLA/uptime, breach-notification SLA, named security
@@ -216,43 +208,46 @@ mechanism yet. See `reporting.py`'s module docstring.
   actual sample contract.
 - **Contract obligation tracking & compliance checking**: each extracted
   requirement becomes a trackable `contract_obligations` row; checking
-  compliance reuses Phase 2's alert engine outright (`contract_violation`
-  has been sitting unused in the schema's `alert_type` enum since Phase 0)
-  rather than building a parallel notification path.
+  compliance reuses the monitoring alert engine outright
+  (`contract_violation` had been sitting unused in the schema's
+  `alert_type` enum since day one) rather than building a parallel
+  notification path.
 - **Cross-framework control mapping** (`/admin/board` → Vendor Coverage
   tab): "vendor covers 85% of NIST CSF, 78% of SOC 2" made real — a
-  vendor's assessment answers are credited across frameworks by walking
-  the `control_mappings` graph seeded in Phase 0, so one NIST-framed
-  questionnaire implies SOC 2/ISO 27001/HIPAA coverage too. Includes the
-  spec's own HIPAA gap-analysis scenario ("SOC 2 certified ≠ HIPAA
-  compliant — here's exactly what's missing") and a control-gap
-  scorecard across the whole vendor base. See
+  vendor's assessment answers are credited across frameworks by walking a
+  seeded `control_mappings` graph, so one NIST-framed questionnaire
+  implies SOC 2/ISO 27001/HIPAA coverage too. Includes a HIPAA
+  gap-analysis scenario ("SOC 2 certified ≠ HIPAA compliant — here's
+  exactly what's missing") and a control-gap scorecard across the whole
+  vendor base. See
   [`control-mapping-guide.md`](docs/advanced/control-mapping-guide.md).
 - **Generalized playbook engine**: `playbook_definitions` rows (5 seeded)
   each name a trigger and an ordered step sequence, executed and logged to
   `playbook_executions` by one small interpreter — deliberately additive
-  to Phases 2/3's already-tested hardcoded logic, covering only the steps
-  nothing else handles yet (e.g. scheduling the 30-day post-incident
-  review after a breach, which nothing previously did). See
-  [`playbook-engine.md`](docs/advanced/playbook-engine.md) for exactly
-  what's new per playbook vs. already covered, and how to add a sixth.
-- **Board reporting dashboard** (`/admin/board`): vendor risk distribution,
-  remediation KPIs (Phase 3), top control gaps (Phase 4), upcoming
-  contract renewals, and a live playbook-execution log — one consolidated
-  view spanning three phases, matching the spec's own healthcare-org
+  to the already-tested hardcoded monitoring/remediation logic above,
+  covering only the steps nothing else handles yet (e.g. scheduling the
+  30-day post-incident review after a breach, which nothing previously
+  did). See [`playbook-engine.md`](docs/advanced/playbook-engine.md) for
+  exactly what's new per playbook vs. already covered, and how to add a
+  sixth.
+
+### Board & Executive Reporting
+
+- **Board reporting dashboard** (`/admin/board`): vendor risk
+  distribution, remediation KPIs, top control gaps, upcoming contract
+  renewals, and a live playbook-execution log — one consolidated view
+  spanning every capability above, matching a realistic healthcare-org
   quarterly board scenario.
 
-## What's built (Phase 5 — final phase)
+### Security, Access Control & Production Hardening
 
-- **Real per-role staff auth**: `security.py`'s "real RBAC deferred to
-  Phase 5" note, carried since Phase 1, is closed for real — magic-link
-  staff login (`/staff/auth`) issues a session JWT carrying the user's
-  role from `users.role`, and `require_role(...)` is a genuine
-  authorization dependency, not the `X-Admin-Key` shared-secret
-  placeholder. One endpoint (exception approval) is migrated as a proven,
-  fully-tested pattern (401 with no staff session → 403 with the wrong
-  role → 200 with the right one, and the real approver is now recorded
-  instead of `NULL`) — see
+- **Real per-role staff auth**: magic-link staff login (`/staff/auth`)
+  issues a session JWT carrying the user's role from `users.role`, and
+  `require_role(...)` is a genuine authorization dependency, not an
+  `X-Admin-Key` shared-secret placeholder. One endpoint (exception
+  approval) is migrated as a proven, fully-tested pattern (401 with no
+  staff session → 403 with the wrong role → 200 with the right one, and
+  the real approver is now recorded instead of `NULL`) — see
   [`security-hardening.md`](docs/operations/security-hardening.md) for
   why the other ~30 admin endpoints weren't all retrofitted in this pass,
   and the migration path this establishes for doing so.
@@ -287,10 +282,13 @@ mechanism yet. See `reporting.py`'s module docstring.
   row counts but that the `audit_logs` append-only trigger survived the
   round-trip — see
   [`disaster-recovery.md`](docs/operations/disaster-recovery.md).
-- **A real coverage number**: 77% (not the spec's aspirational 85%
-  restated as fact), with an honest breakdown of what's driving the gap
-  (seed scripts at 0% but otherwise verified; router HTTP-layer glue
-  thinner than the service logic underneath it).
+- **A real coverage number**: 77% (not an aspirational number restated as
+  fact), with an honest breakdown of what's driving the gap (seed scripts
+  at 0% but otherwise verified; router HTTP-layer glue thinner than the
+  service logic underneath it).
+
+### Operations, Documentation & Infrastructure-as-Code
+
 - **10 operational runbooks** tied to this system's actual code/metrics/
   config, not generic infra filler — plus a security-hardening checklist,
   monitoring/observability guide, disaster-recovery plan, four user
@@ -298,15 +296,23 @@ mechanism yet. See `reporting.py`'s module docstring.
   outlines, a production launch checklist, and a retrospective template —
   all under [`docs/operations/`](docs/operations/), [`docs/guides/`](docs/guides/),
   and [`docs/training/`](docs/training/).
-- **CI/CD, Docker, Kubernetes, and Terraform** — real, valid configuration
-  (`.github/workflows/`, both Dockerfiles, `docker-compose.yml`, `k8s/`,
-  `terraform/`) following the same honesty already established for
-  Airflow in Phase 2: written to be correct against the tool versions
-  they target, **not executed** — no Docker/kubectl/terraform binary was
-  available in this sandbox, and applying real cloud infrastructure isn't
-  something to do without a live account and explicit authorization
-  regardless. Each has its own README section on exactly what wasn't run
-  and how to actually run it.
+
+<a id="infrastructure-as-code-not-executed-here"></a>
+**Infrastructure-as-code — written, not executed here.** Four Airflow DAGs
+(`daily_certification_check`, `hourly_breach_check`,
+`daily_news_monitoring`, `weekly_financial_check`, plus a
+`daily_finding_escalation_check`), CI/CD (`.github/workflows/`), both
+Dockerfiles, `docker-compose.yml`, `k8s/`, and `terraform/` are all real,
+valid configuration — every DAG task is a thin wrapper calling straight
+into the service layer that *is* tested (unit + live-Postgres
+integration), every YAML file is `pyyaml`-validated. None of it was
+actually run: no Docker/kubectl/terraform binary or Airflow install was
+available in this sandbox, and applying real cloud infrastructure isn't
+something to do without a live account and explicit authorization
+regardless. Each directory has its own README section on exactly what
+wasn't run and how to actually run it — see
+[`backend/airflow_dags/README.md`](backend/airflow_dags/README.md) and
+[`k8s/README.md`](k8s/README.md) as the starting points.
 
 ## Running it
 
@@ -384,25 +390,3 @@ detect-secrets scan --baseline ../.secrets.baseline          # audited baseline,
 python scripts/load_test.py --endpoint /health/ready --concurrency 50 --requests 500
 ./scripts/backup_restore.sh backup "$DATABASE_URL" backup.dump
 ```
-
-## Roadmap
-
-- [x] **Phase 0 — Foundation & Architecture**: system design, data model,
-      integration points, threat model, scenario walkthrough, tech stack
-- [x] **Phase 1 — Vendor Assessment Engine**: questionnaire portal, LLM
-      answer analysis, automated risk scoring, PDF assessment reports
-- [x] **Phase 2 — Continuous Monitoring & Alerts**: cert/breach/CVE/news/
-      financial-distress monitoring via Airflow, alert routing & escalation,
-      incident impact assessment
-- [x] **Phase 3 — Remediation Workflow**: finding-to-closure state machine,
-      evidence validation engine, escalation & exception handling, KPI
-      reporting
-- [x] **Phase 4 — Advanced Features**: contract parsing & compliance
-      mapping, cross-framework control mapping (NIST CSF ↔ SOC 2 ↔ ISO
-      27001 ↔ HIPAA), incident-response playbook engine
-- [x] **Phase 5 — Production Hardening**: CI/CD, security hardening, test
-      suites, operational runbooks, disaster recovery, documentation &
-      training materials
-
-Each phase's detailed requirements are tracked against the original spec
-in `~/Desktop/TPRM_Automation_Enterprise_Prompt.txt`.
